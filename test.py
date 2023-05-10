@@ -1,10 +1,37 @@
 import pygame
 import pytmx
 import csv
-import sys
 from pygame import transform
 from pygame.image import load
 from playerLoader import PlayerSelector
+
+# Initialize Pygame
+pygame.init()
+
+# Set up the screen
+screen_width = 1500
+screen_height = 900
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Illinois Jackson and the Shrine of Impending Dread!")
+
+# Load the map image
+map_image = pygame.image.load("Platformer assets pack\Level_1.png").convert_alpha()
+
+# Load the collision data from the CSV file
+collision_data = []
+with open("Platformer assets pack\Level_1.csv", "r") as file:
+    reader = csv.reader(file)
+    for row in reader:
+        collision_data.append([int(cell) for cell in row])
+
+# Load the Tiled map
+tmx_data = pytmx.TiledMap("Platformer assets pack\Level_1.tmx")
+
+# Get the collision layer from the Tiled map
+collision_layer = tmx_data.get_layer_by_name("Tile Layer 1")
+
+# Set up the camera
+camera = pygame.Rect(0, 0, screen_width, screen_height)
 
 ###################################################################################################
 """
@@ -23,7 +50,7 @@ from playerLoader import PlayerSelector
   ╚════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
                                                             
 """
-class IllinoisJackson:
+class IllinoisJackson(pygame.sprite.Sprite):
     def __init__(self, location, smsc_dimensions, inverted=False):
 
         self.Player = ""
@@ -39,6 +66,8 @@ class IllinoisJackson:
         self.idleImageLink = self.Player["Action"]["Idle"]["imagePath"] + f"\{self.idleFrame}.png"
 
         self.SpriteObject = self.load_sprite()
+
+        self.rect = self.SpriteObject.get_rect()
 
 
     def load_sprite(self,with_alpha=True):
@@ -69,93 +98,46 @@ class IllinoisJackson:
         blit_position = (self.player_x, self.player_y)
         surface.blit(self.SpriteObject, blit_position)
 
+    def update(self):
+        # Handle movement
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            self.player_x -= 5
+        elif keys[pygame.K_RIGHT]:
+            self.player_x += 5
+        elif keys[pygame.K_UP]:
+            self.player_y -= 5
+        elif keys[pygame.K_DOWN]:
+            self.player_y += 5
 
-pygame.init()
-tick = 0
+        # Check for collisions with the collision layer
+        for x, y, gid in collision_layer:
+            if gid:
+                tile_rect = pygame.Rect(x * tmx_data.tilewidth, y * tmx_data.tileheight, tmx_data.tilewidth, tmx_data.tileheight)
+                if self.rect.colliderect(tile_rect):
+                    self.player_y += 1
 
-# Set the position of the camera
-camera_x = 0
-camera_y = 460
+# Create the player sprite and add it to a sprite group
+player = IllinoisJackson((175, screen_height - 300), (90,90))
 
-# Display a portion of the map surface
-screen_width = 1500
-screen_height = 900
-screen = pygame.display.set_mode((screen_width, screen_height))
-
-IJ = IllinoisJackson((camera_x + 250, camera_y - 100), (100,100))
-
-# Load the TMX file
-tmx_data = pytmx.util_pygame.load_pygame("Platformer assets pack\Level_1.tmx")
-
-# Load the collision layer CSV file
-with open("Platformer assets pack\Level_1.csv", "r") as f:
-    reader = csv.reader(f)
-    collision_data = [[int(cell) for cell in row] for row in reader]
-
-# Create a new layer in the TMX data object for the collision layer
-collision_layer = pytmx.TiledObjectGroup(IJ)
-collision_layer.name = "Collision"
-collision_layer.visible = False
-collision_layer.opacity = 1.0
-collision_layer.width = tmx_data.width
-collision_layer.height = tmx_data.height
-collision_layer.tiles = [[None for y in range(tmx_data.height)] for x in range(tmx_data.width)]
-
-# Iterate over the collision layer data and set the corresponding tiles in the collision layer object
-for x in range(tmx_data.width):
-    for y in range(tmx_data.height):
-        gid = collision_data[y][x]
-        if gid != 0:
-            tile = pytmx.TiledTile()
-            tile.gid = gid
-            tile.width = tmx_data.tilewidth
-            tile.height = tmx_data.tileheight
-            collision_layer.tiles[x][y] = tile
-
-# Add the collision layer to the TMX data object
-tmx_data.object_groups.append(collision_layer)
-
-# Create a Pygame surface with the same dimensions as the map
-map_surface = pygame.Surface((tmx_data.width * tmx_data.tilewidth, tmx_data.height * tmx_data.tileheight))
-
-# Iterate over all the layers in the map
-for layer in tmx_data.layers:
-    # If the layer is not the collision layer, iterate over all the tiles in the layer and blit them onto the map surface
-    if layer.name != "Collision":
-        for x, y, image in layer.tiles():
-            # Calculate the position of the tile in pixels
-            px = x * tmx_data.tilewidth
-            py = y * tmx_data.tileheight
-
-            # Blit the tile onto the map surface
-            map_surface.blit(image, (px, py))
-
-
-# Main game loop
+# Game loop
+clock = pygame.time.Clock()
 while True:
     # Handle events
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
-            sys.exit()
+            quit()
 
-    # Get the input from the arrow keys
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]:
-        camera_x -= 5
-    elif keys[pygame.K_RIGHT]:
-        camera_x += 5
-    if keys[pygame.K_UP]:
-        camera_y -= 5
-    elif keys[pygame.K_DOWN]:
-        camera_y += 5
+    # Draw the map and the player sprite to the screen
+    map_rect = map_image.get_rect()
+    screen.blit(map_image, (0, 0), camera)
 
-    # Clamp the camera position to the bounds of the map
-    camera_x = max(0, min(camera_x, tmx_data.width * tmx_data.tilewidth - screen_width))
-    camera_y = max(0, min(camera_y, tmx_data.height * tmx_data.tileheight - screen_height))
-
-    # Blit a portion of the map surface onto the screen
-    screen.blit(map_surface.subsurface(pygame.Rect(camera_x, camera_y, screen_width, screen_height)), (0, 0))
+    player.drawPlayer(screen)
+    player.update()
 
     # Update the display
-    pygame.display.flip()
+    pygame.display.update()
+
+    # Cap the frame rate
+    clock.tick(60)
