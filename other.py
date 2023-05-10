@@ -71,6 +71,22 @@ class IllinoisJackson:
 
 
 
+"""
+
+  background = pygame.image.load(os.path.join(background_path)).convert_alpha()
+  # background = pygame.transform.scale(background, (WIDTH, HEIGHT))
+  bg_width, bg_height = background.get_size()
+
+  mapThumb = pygame.image.load(thumb_path).convert_alpha()
+
+  with open(collisions_path, newline="\n") as csvfile:
+    layout_reader = csv.reader(csvfile)
+    collision_map = [list(map(int, row)) for row in layout_reader]
+
+  return background, collision_map, (bg_width, bg_height), mapThum
+"""
+
+
 pygame.init()
 tick = 0
 
